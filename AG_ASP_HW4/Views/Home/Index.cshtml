@@ -1,0 +1,267 @@
+﻿@{
+    ViewBag.Title = "Гостевая книга";
+}
+
+<div id="main-content">
+    <h2>Гостевая книга</h2>
+    <div id="welcome-message" class="fs-3 fw-bold">
+        Здравствуйте!
+    </div>
+
+    <div id="messages-container"></div>
+
+    <div id="message-add-section" style="display:none;">
+        <h4>Добавить новое сообщение</h4>
+        <textarea id="messageText" class="form-control" rows="3" placeholder="Введите ваше сообщение..."></textarea>
+        <br />
+        <button class="btn btn-primary" id="btn-add-message">Добавить сообщение</button>
+    </div>
+
+    <div id="message-not-logged" style="display:none;">
+        <p><em>Для отправки сообщений войдите в свой аккаунт.</em></p>
+    </div>
+</div>
+
+<div id="login-form" style="display:none;">
+    <h2>Вход в систему</h2>
+    <form id="form-login">
+        @Html.AntiForgeryToken()
+        <div id="login-errors" class="text-danger"></div>
+        <div id="login-success" class="text-success"></div>
+
+        <div class="mb-3">
+            <label for="login">Логин</label>
+            <input type="text" name="Login" id="login" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label for="password">Пароль</label>
+            <input type="password" name="Password" id="password" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-success">Войти</button>
+        <button type="button" class="btn btn-warning" id="btn-guest-login">Войти как гость</button>
+        <button type="button" class="btn btn-secondary" onclick="showMain()">Отмена</button>
+    </form>
+</div>
+
+<div id="register-form" style="display:none;">
+    <h2>Регистрация</h2>
+    <form id="form-register">
+        @Html.AntiForgeryToken()
+        <div id="register-errors" class="text-danger"></div>
+        <div id="register-success" class="text-success"></div>
+
+        <div class="mb-3">
+            <label for="reg-login">Логин</label>
+            <input type="text" name="Login" id="reg-login" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label for="reg-password">Пароль</label>
+            <input type="password" name="Password" id="reg-password" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label for="reg-confirm-password">Подтверждение пароля</label>
+            <input type="password" name="ConfirmPassword" id="reg-confirm-password" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+        <button type="button" class="btn btn-secondary" onclick="showMain()">Отмена</button>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        function showMain() {
+            $("#main-content").show();
+            $("#login-form, #register-form").hide();
+        }
+        function showLogin() {
+            $("#login-form").show();
+            $("#main-content, #register-form").hide();
+        }
+        function showRegister() {
+            $("#register-form").show();
+            $("#main-content, #login-form").hide();
+        }
+
+        $(document).ready(function(){
+            showMain();
+
+            $("#nav-home").click(function(){ showMain(); });
+            $("#nav-login").click(function(){ showLogin(); });
+            $("#nav-register").click(function(){ showRegister(); });
+            $("#nav-logout").click(function(){ logoutAjax(); });
+
+            $("#form-login").submit(function(e){
+                e.preventDefault();
+                $("#login-errors").html("");
+                $("#login-success").html("");
+
+                var formData = $(this).serialize();
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LoginAjax", "Account")',
+                    data: formData,
+                    success: function(response){
+                        if(response.success){
+                            $("#login-success").text(response.message);
+                            updateUserStatus();
+                            showMain();
+                        } else {
+                            let errHtml = "";
+                            response.errors.forEach(err => {
+                                errHtml += `<div>${err}</div>`;
+                            });
+                            $("#login-errors").html(errHtml);
+                        }
+                    },
+                    error: function(jqXHR, statusText, error){
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            });
+
+            $("#btn-guest-login").click(function(){
+                $("#login-errors").html("");
+                $("#login-success").html("");
+
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GuestLoginAjax", "Account")',
+                    data: {
+                        __RequestVerificationToken: $("input[name='__RequestVerificationToken']").first().val()
+                    },
+                    success: function(response){
+                        if(response.success){
+                            updateUserStatus();
+                            showMain();
+                        } else {
+                            console.log(response.errors);
+                        }
+                    },
+                    error: function(jqXHR, statusText, error){
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            });
+
+            $("#form-register").submit(function(e){
+                e.preventDefault();
+                $("#register-errors").html("");
+                $("#register-success").html("");
+
+                var formData = $(this).serialize();
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("RegisterAjax", "Account")',
+                    data: formData,
+                    success: function(response){
+                        if(response.success){
+                            $("#register-success").text(response.message);
+                            showLogin();
+                        } else {
+                            let errHtml = "";
+                            response.errors.forEach(err => {
+                                errHtml += `<div>${err}</div>`;
+                            });
+                            $("#register-errors").html(errHtml);
+                        }
+                    },
+                    error: function(jqXHR, statusText, error){
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            });
+
+            function logoutAjax(){
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("LogoutAjax", "Account")',
+                    data: {
+                        __RequestVerificationToken: $("input[name='__RequestVerificationToken']").first().val()
+                    },
+                    success: function(response){
+                        if(response.success){
+                            updateUserStatus();
+                            showMain();
+                        }
+                    },
+                    error: function(jqXHR, statusText, error){
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            }
+
+            $("#btn-add-message").on("click", function(){
+                let messageContent = $("#messageText").val();
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("AddMessage", "Home")',
+                    data: { messageText: messageContent },
+                    success: function(response) {
+                        console.log("AddMessage response:", response);
+                        $("#messageText").val("");
+                        getAllMessages();
+                    },
+                    error: function(jqXHR, statusText, error) {
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            });
+
+            function getAllMessages(){
+                $.ajax({
+                    type: "GET",
+                    url: '@Url.Action("GetMessages", "Home")',
+                    success: function(response){
+                        let messages = JSON.parse(response);
+                        let content = "";
+                        $.each(messages, function(index, message){
+                            content += `
+                                <div class='border p-2 mb-2'>
+                                    <strong>${message.UserName}</strong>
+                                    <em>${message.Date}</em>
+                                    <p>${message.Text}</p>
+                                </div>`;
+                        });
+                        $("#messages-container").html(content);
+                    },
+                    error: function(jqXHR, statusText, error){
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            }
+
+            function updateUserStatus(){
+                $.ajax({
+                    type: "GET",
+                    url: '@Url.Action("GetUserStatus", "Home")',
+                    success: function(response){
+                        $("#welcome-message").text(response.message);
+
+                        if (response.isUser) {
+                            $("#nav-login").hide();
+                            $("#nav-register").hide();
+                            $("#nav-logout").show();
+
+                            $("#message-add-section").show();
+                            $("#message-not-logged").hide();
+                        }
+                        else {
+                            $("#nav-login").show();
+                            $("#nav-register").show();
+                            $("#nav-logout").hide();
+
+                            $("#message-add-section").hide();
+                            $("#message-not-logged").show();
+                        }
+                    },
+                    error: function(jqXHR, statusText, error){
+                        console.log(jqXHR.status, statusText, error);
+                    }
+                });
+            }
+
+            getAllMessages();
+            updateUserStatus();
+        });
+    </script>
+}
